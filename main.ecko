@@ -1,0 +1,176 @@
+# datetime - calendar dates, times, and durations for Ecko.
+#
+# A datetime is a Unix-millisecond Int (UTC) - the same thing `std.time.now()`
+# returns - so two datetimes compare and subtract with plain `<` and `-`. This
+# package adds the calendar math that std.time lacks: components, durations,
+# and arithmetic. All pure; no capabilities.
+#
+#   import datetime
+#   dt = datetime                    # `import ... as` is not supported yet
+#
+#   now  = dt.now()
+#   c    = dt.components(now)         # { year, month, day, hour, minute, ... }
+#   soon = dt.add_days(now, 3)
+#   dt.format(now, "%Y-%m-%d")
+#
+# Calendar conversion uses Howard Hinnant's days<->civil algorithm, which is
+# designed for truncate-toward-zero integer division (Ecko's `/`), so it is
+# correct for every proleptic-Gregorian date, before and after 1970.
+
+import std.time
+
+# ---- constants -------------------------------------------------------------
+MS_DAY = 86400000
+MS_HOUR = 3600000
+MS_MIN = 60000
+MS_SEC = 1000
+
+# ---- floor div / mod (Ecko `/` and `%` truncate toward zero) ---------------
+# Needed only where an operand can be negative (the ms<->day split for pre-1970
+# instants); for modern dates these equal `/` and `%`.
+fn fdiv(a, b) {
+    q = a / b
+    r = a - q * b
+    if r != 0 and r < 0 != (b < 0) { q - 1 } else { q }
+}
+
+fn fmod(a, b) {
+    r = a % b
+    if r != 0 and r < 0 != (b < 0) { r + b } else { r }
+}
+
+# ---- the calendar core (Hinnant) -------------------------------------------
+# civil_from_days(z) -> [year, month, day]; z = days since 1970-01-01.
+fn civil_from_days(z0) {
+    z = z0 + 719468
+    era = if z >= 0 { z } else { z - 146096 } / 146097
+    doe = z - era * 146097
+    yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+    y = yoe + era * 400
+    doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
+    mp = (5 * doy + 2) / 153
+    d = doy - (153 * mp + 2) / 5 + 1
+    m = if mp < 10 { mp + 3 } else { mp - 9 }
+    yy = if m <= 2 { y + 1 } else { y }
+    [yy, m, d]
+}
+
+# days_from_civil(y, m, d) -> days since 1970-01-01.
+fn days_from_civil(y0, m, d) {
+    y = if m <= 2 { y0 - 1 } else { y0 }
+    era = if y >= 0 { y } else { y - 399 } / 400
+    yoe = y - era * 400
+    doy = (153 * if m > 2 { m - 3 } else { m + 9 } + 2) / 5 + d - 1
+    doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+    era * 146097 + doe - 719468
+}
+
+# ---- now -------------------------------------------------------------------
+export fn now() = time.now()
+
+# ---- components ------------------------------------------------------------
+# components(ms) -> { year, month, day, hour, minute, second, millisecond,
+#                     weekday (Mon=0..Sun=6), yearday (1-366) }
+export fn components(ms) {
+    dnum = fdiv(ms, MS_DAY)
+    tod = ms - dnum * MS_DAY  # 0 .. 86399999
+    ymd = civil_from_days(dnum)
+    yr = ymd[0]
+    {
+        year: yr,
+        month: ymd[1],
+        day: ymd[2],
+        hour: tod / MS_HOUR,
+        minute: tod / MS_MIN % 60,
+        second: tod / MS_SEC % 60,
+        millisecond: tod % MS_SEC,
+        weekday: fmod(dnum + 3, 7),
+        yearday: dnum - days_from_civil(yr, 1, 1) + 1,
+    }
+}
+
+# from_components(y, mo, d, h?, mi?, s?, milli?) -> Unix ms.
+export fn from_components(y, mo, d, h = 0, mi = 0, s = 0, milli = 0) = days_from_civil(y, mo, d) * MS_DAY +
+    h * MS_HOUR +
+    mi * MS_MIN +
+    s * MS_SEC +
+    milli
+
+# ---- convenience extractors ------------------------------------------------
+export fn year(ms) = components(ms).year
+export fn month(ms) = components(ms).month
+export fn day(ms) = components(ms).day
+export fn hour(ms) = components(ms).hour
+export fn minute(ms) = components(ms).minute
+export fn second(ms) = components(ms).second
+export fn weekday(ms) = components(ms).weekday
+
+WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+]
+
+export fn weekday_name(ms) = WEEKDAYS[weekday(ms)]
+export fn month_name(ms) = MONTHS[month(ms) - 1]
+
+# ---- calendar predicates ---------------------------------------------------
+export fn is_leap(y) = y % 4 == 0 and y % 100 != 0 or y % 400 == 0
+
+export fn days_in_month(y, m) {
+    if m == 2 {
+        if is_leap(y) { 29 } else { 28 }
+    } else if m == 4 or m == 6 or m == 9 or m == 11 {
+        30
+    } else {
+        31
+    }
+}
+
+# ---- durations (plain milliseconds) ----------------------------------------
+export fn millis(n) = n
+export fn seconds(n) = n * MS_SEC
+export fn minutes(n) = n * MS_MIN
+export fn hours(n) = n * MS_HOUR
+export fn days(n) = n * MS_DAY
+export fn weeks(n) = n * 7 * MS_DAY
+
+# ---- arithmetic ------------------------------------------------------------
+export fn add(ms, duration) = ms + duration
+export fn sub(ms, duration) = ms - duration
+export fn diff(a, b) = a - b
+export fn diff_days(a, b) = fdiv(a - b, MS_DAY)
+
+export fn add_days(ms, n) = ms + n * MS_DAY
+
+# add_months / add_years work on the calendar and clamp the day to the target
+# month's length (Jan 31 + 1 month -> Feb 28/29).
+export fn add_months(ms, n) {
+    c = components(ms)
+    total = c.year * 12 + (c.month - 1) + n
+    y = fdiv(total, 12)
+    mo = fmod(total, 12) + 1
+    dim = days_in_month(y, mo)
+    d = if c.day < dim { c.day } else { dim }
+    from_components(y, mo, d, c.hour, c.minute, c.second, c.millisecond)
+}
+
+export fn add_years(ms, n) = add_months(ms, n * 12)
+
+export fn start_of_day(ms) = fdiv(ms, MS_DAY) * MS_DAY
+
+# ---- formatting / parsing (delegated to std.time / chrono) -----------------
+export fn format(ms, fmt) = time.format(ms, fmt)
+export fn to_iso(ms) = time.format(ms, "%Y-%m-%dT%H:%M:%S%.3fZ")
+export fn parse(iso) = time.parse(iso)
+export fn parse_format(s, fmt) = time.parse_format(s, fmt)

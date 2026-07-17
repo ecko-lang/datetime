@@ -1,0 +1,29 @@
+# datetime demo. Uses a fixed instant so the output is deterministic.
+#
+#   ecko example.ecko
+
+import "./main.ecko"
+dt = main
+
+d = dt.from_components(2026, 7, 16, 9, 30, 0)
+c = dt.components(d)
+
+pretty = dt.format(d, "%A, %B %d, %Y at %H:%M")
+print("date:      {c.year}-{c.month}-{c.day}  ({dt.weekday_name(d)})")
+print("iso:       {dt.to_iso(d)}")
+print("formatted: {pretty}")
+print("month has: {dt.days_in_month(c.year, c.month)} days")
+print("")
+
+# Arithmetic - all just integer math on the millisecond timestamp.
+in_3_days = dt.format(dt.add_days(d, 3), "%Y-%m-%d")
+in_2_months = dt.format(dt.add_months(d, 2), "%Y-%m-%d")
+year_ago = dt.format(dt.add_years(d, -1), "%Y-%m-%d")
+print("in 3 days:   {in_3_days}")
+print("in 2 months: {in_2_months}")
+print("a year ago:  {year_ago}")
+
+# Durations and diffs.
+launch = dt.from_components(2027, 1, 1)
+print("days until 2027-01-01: {dt.diff_days(launch, d)}")
+print("that is a {dt.weekday_name(launch)}")

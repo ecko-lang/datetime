@@ -1,0 +1,95 @@
+# Tests for the datetime package - offline, deterministic. Anchored to known
+# dates: 1970-01-01 = ms 0 (a Thursday); 2000-01-01 was a Saturday.
+import std.test
+import "../main.ecko"
+dt = main
+
+test.case("epoch components (1970-01-01 is a Thursday)", || {
+    c = dt.components(0)
+    test.eq(c.year, 1970)
+    test.eq(c.month, 1)
+    test.eq(c.day, 1)
+    test.eq(c.hour, 0)
+    test.eq(c.minute, 0)
+    test.eq(c.second, 0)
+    test.eq(c.weekday, 3)  # Mon=0 .. Sun=6, so Thursday=3
+})
+
+test.case("from_components round-trips", || {
+    ms = dt.from_components(2026, 7, 16, 13, 45, 30, 500)
+    c = dt.components(ms)
+    test.eq([c.year, c.month, c.day], [2026, 7, 16])
+    test.eq([c.hour, c.minute, c.second, c.millisecond], [13, 45, 30, 500])
+    test.eq(dt.from_components(1970, 1, 1), 0)
+})
+
+test.case("time-of-day defaults to midnight", || {
+    c = dt.components(dt.from_components(2026, 7, 16))
+    test.eq([c.hour, c.minute, c.second], [0, 0, 0])
+})
+
+test.case("weekday of a known date (2000-01-01 was a Saturday)", || {
+    test.eq(dt.weekday(dt.from_components(2000, 1, 1)), 5)  # Saturday
+    test.eq(dt.weekday_name(dt.from_components(2000, 1, 1)), "Saturday")
+})
+
+test.case("is_leap follows the Gregorian rule", || {
+    test.ok(dt.is_leap(2000), "2000 divisible by 400")
+    test.ok(not dt.is_leap(1900), "1900 divisible by 100 not 400")
+    test.ok(dt.is_leap(2024), "2024 divisible by 4")
+    test.ok(not dt.is_leap(2023), "2023 not divisible by 4")
+})
+
+test.case("days_in_month", || {
+    test.eq(dt.days_in_month(2024, 2), 29)
+    test.eq(dt.days_in_month(2023, 2), 28)
+    test.eq(dt.days_in_month(2024, 4), 30)
+    test.eq(dt.days_in_month(2024, 1), 31)
+})
+
+test.case("duration helpers are milliseconds", || {
+    test.eq(dt.seconds(1), 1000)
+    test.eq(dt.minutes(1), 60000)
+    test.eq(dt.hours(1), 3600000)
+    test.eq(dt.days(2), 172800000)
+    test.eq(dt.weeks(1), 604800000)
+})
+
+test.case("add_days and diff", || {
+    base = dt.from_components(2026, 7, 16)
+    c = dt.components(dt.add_days(base, 3))
+    test.eq([c.year, c.month, c.day], [2026, 7, 19])
+    test.eq(dt.diff(dt.from_components(2026, 1, 3), dt.from_components(2026, 1, 1)), dt.days(2))
+    test.eq(dt.diff_days(dt.from_components(2026, 3, 1), dt.from_components(2026, 2, 1)), 28)
+})
+
+test.case("add_months clamps to month length", || {
+    c = dt.components(dt.add_months(dt.from_components(2024, 1, 31), 1))
+    test.eq([c.year, c.month, c.day], [2024, 2, 29])  # Jan 31 + 1mo -> Feb 29 (leap)
+    c2 = dt.components(dt.add_months(dt.from_components(2026, 12, 15), 1))
+    test.eq([c2.year, c2.month, c2.day], [2027, 1, 15])  # crosses the year
+})
+
+test.case("add_years clamps Feb 29", || {
+    c = dt.components(dt.add_years(dt.from_components(2024, 2, 29), 1))
+    test.eq([c.year, c.month, c.day], [2025, 2, 28])
+})
+
+test.case("start_of_day floors to midnight", || {
+    ms = dt.from_components(2026, 7, 16, 13, 45, 30)
+    c = dt.components(dt.start_of_day(ms))
+    test.eq([c.year, c.month, c.day, c.hour, c.minute, c.second], [2026, 7, 16, 0, 0, 0])
+})
+
+test.case("format and parse delegate to std.time", || {
+    test.eq(dt.format(0, "%Y-%m-%d"), "1970-01-01")
+    test.eq(dt.to_iso(0), "1970-01-01T00:00:00.000Z")
+    test.eq(dt.components(dt.parse("2026-07-16T00:00:00Z")).year, 2026)
+})
+
+test.case("pre-1970 dates work (negative timestamps)", || {
+    ms = dt.from_components(1969, 12, 31)
+    c = dt.components(ms)
+    test.eq([c.year, c.month, c.day], [1969, 12, 31])
+    test.ok(ms < 0, "before the epoch is negative")
+})

@@ -1,0 +1,10 @@
+{
+  "name": "datetime",
+  "version": "0.1.0",
+  "entrypoint": "main.ecko",
+  "description": "Calendar dates, times, and durations for Ecko: components, arithmetic, and formatting over Unix-ms timestamps. Pure - no capabilities.",
+  "author": "Sean Nieuwoudt <sean@underwulf.com>",
+  "license": "MIT",
+  "capabilities": [],
+  "dependencies": {}
+}
