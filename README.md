@@ -11,10 +11,11 @@ so two of them compare and subtract with plain `<` and `-`.
 ## Install
 
 ```bash
-ecko add https://github.com/ecko-sh/datetime
+ecko get github.com/ecko-sh/datetime
 ```
 
-Vendored into `./vendor/datetime/`, pinned in `ecko.lock`. Needs no capabilities.
+Vendored under `./vendor/github.com/ecko-sh/datetime/`, pinned by file-tree
+hash in `ecko.sum`. Needs no capabilities.
 
 ## Usage
 
