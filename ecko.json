@@ -1,6 +1,6 @@
 {
   "module": "github.com/ecko-sh/datetime",
-  "version": "0.9.1",
+  "version": "0.9.4",
   "entrypoint": "main.ecko",
   "description": "Calendar dates, times, and durations for Ecko: components, arithmetic, and formatting over Unix-ms timestamps. Pure - no capabilities.",
   "author": "Sean Nieuwoudt <sean@underwulf.com>",

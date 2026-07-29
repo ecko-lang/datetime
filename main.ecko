@@ -66,11 +66,12 @@ fn days_from_civil(y0, m, d) {
 }
 
 # ---- now -------------------------------------------------------------------
+## The current time as Unix milliseconds (UTC).
 export fn now() = time.now()
 
 # ---- components ------------------------------------------------------------
-# components(ms) -> { year, month, day, hour, minute, second, millisecond,
-#                     weekday (Mon=0..Sun=6), yearday (1-366) }
+## components(ms) -> { year, month, day, hour, minute, second, millisecond,
+##                     weekday (Mon=0..Sun=6), yearday (1-366) }
 export fn components(ms) {
     dnum = fdiv(ms, MS_DAY)
     tod = ms - dnum * MS_DAY  # 0 .. 86399999
@@ -89,7 +90,7 @@ export fn components(ms) {
     }
 }
 
-# from_components(y, mo, d, h?, mi?, s?, milli?) -> Unix ms.
+## from_components(y, mo, d, h?, mi?, s?, milli?) -> Unix ms.
 export fn from_components(y, mo, d, h = 0, mi = 0, s = 0, milli = 0) = days_from_civil(y, mo, d) * MS_DAY +
     h * MS_HOUR +
     mi * MS_MIN +
@@ -97,12 +98,19 @@ export fn from_components(y, mo, d, h = 0, mi = 0, s = 0, milli = 0) = days_from
     milli
 
 # ---- convenience extractors ------------------------------------------------
+## Calendar year.
 export fn year(ms) = components(ms).year
+## Calendar month, 1-12.
 export fn month(ms) = components(ms).month
+## Day of the month, 1-31.
 export fn day(ms) = components(ms).day
+## Hour of the day, 0-23 (UTC).
 export fn hour(ms) = components(ms).hour
+## Minute of the hour, 0-59.
 export fn minute(ms) = components(ms).minute
+## Second of the minute, 0-59.
 export fn second(ms) = components(ms).second
+## Day of the week, 0 = Monday through 6 = Sunday (ISO ordering).
 export fn weekday(ms) = components(ms).weekday
 
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -121,12 +129,19 @@ MONTHS = [
     "December",
 ]
 
+## The weekday in English - "Monday" through "Sunday".
 export fn weekday_name(ms) = WEEKDAYS[weekday(ms)]
+## The month in English - "January" through "December".
 export fn month_name(ms) = MONTHS[month(ms) - 1]
 
 # ---- calendar predicates ---------------------------------------------------
+## Whether `y` is a leap year, by the full Gregorian rule.
 export fn is_leap(y) = y % 4 == 0 and y % 100 != 0 or y % 400 == 0
 
+## How many days month `m` has in year `y`, accounting for leap years.
+##
+## example:
+##   days_in_month(2024, 2)   # 29
 export fn days_in_month(y, m) {
     if m == 2 {
         if is_leap(y) { 29 } else { 28 }
@@ -138,23 +153,42 @@ export fn days_in_month(y, m) {
 }
 
 # ---- durations (plain milliseconds) ----------------------------------------
+## `n` milliseconds as a duration, for `add` and `sub`. The identity helper -
+## it exists so a duration is always spelled the same way.
 export fn millis(n) = n
+## `n` seconds as a duration in milliseconds, for `add` and `sub`.
 export fn seconds(n) = n * MS_SEC
+## `n` minutes as a duration in milliseconds.
 export fn minutes(n) = n * MS_MIN
+## `n` hours as a duration in milliseconds.
 export fn hours(n) = n * MS_HOUR
+## `n` days as a duration in milliseconds. Exactly 24 hours each - use
+## `add_days` where a calendar day is meant.
 export fn days(n) = n * MS_DAY
+## `n` weeks as a duration in milliseconds.
 export fn weeks(n) = n * 7 * MS_DAY
 
 # ---- arithmetic ------------------------------------------------------------
+## The timestamp `duration` milliseconds later.
+##
+## example:
+##   add(now(), hours(3))
 export fn add(ms, duration) = ms + duration
+## The timestamp `duration` milliseconds earlier.
+##
+## example:
+##   sub(now(), days(7))   # a week ago
 export fn sub(ms, duration) = ms - duration
+## Milliseconds between two timestamps, `a - b`. Negative when `a` is earlier.
 export fn diff(a, b) = a - b
+## Whole days between two timestamps, truncated toward negative infinity.
 export fn diff_days(a, b) = fdiv(a - b, MS_DAY)
 
+## The timestamp `n` days later. `n` may be negative.
 export fn add_days(ms, n) = ms + n * MS_DAY
 
-# add_months / add_years work on the calendar and clamp the day to the target
-# month's length (Jan 31 + 1 month -> Feb 28/29).
+## add_months / add_years work on the calendar and clamp the day to the target
+## month's length (Jan 31 + 1 month -> Feb 28/29).
 export fn add_months(ms, n) {
     c = components(ms)
     total = c.year * 12 + (c.month - 1) + n
@@ -165,12 +199,26 @@ export fn add_months(ms, n) {
     from_components(y, mo, d, c.hour, c.minute, c.second, c.millisecond)
 }
 
+## The timestamp `n` years later, clamping the day where the target month is
+## shorter - 29 February plus one year is 28 February.
 export fn add_years(ms, n) = add_months(ms, n * 12)
 
+## Midnight UTC on the same day.
 export fn start_of_day(ms) = fdiv(ms, MS_DAY) * MS_DAY
 
 # ---- formatting / parsing (delegated to std.time / chrono) -----------------
+## Format a timestamp with a strftime-style pattern.
+##
+## example:
+##   format(now(), "%Y-%m-%d")
 export fn format(ms, fmt) = time.format(ms, fmt)
+## ISO-8601 with milliseconds and a trailing Z: `2026-07-29T13:45:00.000Z`.
 export fn to_iso(ms) = time.format(ms, "%Y-%m-%dT%H:%M:%S%.3fZ")
+## Parse an ISO-8601 timestamp to milliseconds. Raises when it does not parse.
 export fn parse(iso) = time.parse(iso)
+## Parse `s` using an explicit strftime-style format, for input that is not
+## ISO-8601.
+##
+## example:
+##   parse_format("29/07/2026", "%d/%m/%Y")
 export fn parse_format(s, fmt) = time.parse_format(s, fmt)
