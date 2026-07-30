@@ -11,10 +11,10 @@ subtract with plain `<` and `-`.
 ## Install
 
 ```bash
-ecko get github.com/ecko-sh/datetime
+ecko get github.com/ecko-lang/datetime
 ```
 
-Vendored under `./vendor/github.com/ecko-sh/datetime/`, pinned by file-tree
+Vendored under `./vendor/github.com/ecko-lang/datetime/`, pinned by file-tree
 hash in `ecko.sum`.
 
 ## Usage
