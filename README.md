@@ -55,8 +55,8 @@ dt.weekday_name(now)                # "Thursday"
 
 The calendar conversion is Howard Hinnant's `days`↔`civil` algorithm -
 integer arithmetic, correct for every proleptic-Gregorian date before and after
-1970. It relies on truncate-toward-zero integer division, which is exactly
-Ecko's `/`; a floor-div/mod pair handles the millisecond↔day split for
+1970. It uses the algorithm's floor-division form, which is Ecko's `//`, so
+eras and the millisecond↔day split both round toward negative infinity for
 timestamps before the epoch.
 
 `format`/`parse` delegate to `std.time` (chrono), so you get the full strftime

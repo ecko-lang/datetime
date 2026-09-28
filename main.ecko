@@ -13,9 +13,9 @@
 #   soon = dt.add_days(now, 3)
 #   dt.format(now, "%Y-%m-%d")
 #
-# Calendar conversion uses Howard Hinnant's days<->civil algorithm, which is
-# designed for truncate-toward-zero integer division (Ecko's `/`), so it is
-# correct for every proleptic-Gregorian date, before and after 1970.
+# Calendar conversion uses Howard Hinnant's days<->civil algorithm in its
+# floor-division form (Ecko's `//`), so it is correct for every
+# proleptic-Gregorian date, before and after 1970.
 
 import std.time
 
@@ -25,14 +25,11 @@ MS_HOUR = 3600000
 MS_MIN = 60000
 MS_SEC = 1000
 
-# ---- floor div / mod (Ecko `/` and `%` truncate toward zero) ---------------
+# ---- floor div / mod --------------------------------------------------------
+# `//` already floors; `%` truncates toward zero, so fmod corrects its sign.
 # Needed only where an operand can be negative (the ms<->day split for pre-1970
-# instants); for modern dates these equal `/` and `%`.
-fn fdiv(a, b) {
-    q = a / b
-    r = a - q * b
-    if r != 0 and r < 0 != (b < 0) { q - 1 } else { q }
-}
+# instants); for modern dates fmod equals `%`.
+fn fdiv(a, b) = a // b
 
 fn fmod(a, b) {
     r = a % b
@@ -43,13 +40,13 @@ fn fmod(a, b) {
 # civil_from_days(z) -> [year, month, day]; z = days since 1970-01-01.
 fn civil_from_days(z0) {
     z = z0 + 719468
-    era = if z >= 0 { z } else { z - 146096 } / 146097
+    era = z // 146097
     doe = z - era * 146097
-    yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365
+    yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365
     y = yoe + era * 400
-    doy = doe - (365 * yoe + yoe / 4 - yoe / 100)
-    mp = (5 * doy + 2) / 153
-    d = doy - (153 * mp + 2) / 5 + 1
+    doy = doe - (365 * yoe + yoe // 4 - yoe // 100)
+    mp = (5 * doy + 2) // 153
+    d = doy - (153 * mp + 2) // 5 + 1
     m = if mp < 10 { mp + 3 } else { mp - 9 }
     yy = if m <= 2 { y + 1 } else { y }
     [yy, m, d]
@@ -58,10 +55,10 @@ fn civil_from_days(z0) {
 # days_from_civil(y, m, d) -> days since 1970-01-01.
 fn days_from_civil(y0, m, d) {
     y = if m <= 2 { y0 - 1 } else { y0 }
-    era = if y >= 0 { y } else { y - 399 } / 400
+    era = y // 400
     yoe = y - era * 400
-    doy = (153 * if m > 2 { m - 3 } else { m + 9 } + 2) / 5 + d - 1
-    doe = yoe * 365 + yoe / 4 - yoe / 100 + doy
+    doy = (153 * if m > 2 { m - 3 } else { m + 9 } + 2) // 5 + d - 1
+    doe = yoe * 365 + yoe // 4 - yoe // 100 + doy
     era * 146097 + doe - 719468
 }
 
@@ -81,9 +78,9 @@ export fn components(ms) {
         year: yr,
         month: ymd[1],
         day: ymd[2],
-        hour: tod / MS_HOUR,
-        minute: tod / MS_MIN % 60,
-        second: tod / MS_SEC % 60,
+        hour: tod // MS_HOUR,
+        minute: tod // MS_MIN % 60,
+        second: tod // MS_SEC % 60,
         millisecond: tod % MS_SEC,
         weekday: fmod(dnum + 3, 7),
         yearday: dnum - days_from_civil(yr, 1, 1) + 1,
