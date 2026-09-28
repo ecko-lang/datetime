@@ -25,16 +25,8 @@ MS_HOUR = 3600000
 MS_MIN = 60000
 MS_SEC = 1000
 
-# ---- floor div / mod --------------------------------------------------------
-# `//` already floors; `%` truncates toward zero, so fmod corrects its sign.
-# Needed only where an operand can be negative (the ms<->day split for pre-1970
-# instants); for modern dates fmod equals `%`.
-fn fdiv(a, b) = a // b
-
-fn fmod(a, b) {
-    r = a % b
-    if r != 0 and r < 0 != (b < 0) { r + b } else { r }
-}
+# `//` and `%` both floor, so the ms<->day split below is right for instants
+# before 1970 as well: -1 ms is 1969-12-31 23:59:59.999, not a day off.
 
 # ---- the calendar core (Hinnant) -------------------------------------------
 # civil_from_days(z) -> [year, month, day]; z = days since 1970-01-01.
@@ -70,7 +62,7 @@ export fn now() = time.now()
 ## components(ms) -> { year, month, day, hour, minute, second, millisecond,
 ##                     weekday (Mon=0..Sun=6), yearday (1-366) }
 export fn components(ms) {
-    dnum = fdiv(ms, MS_DAY)
+    dnum = ms // MS_DAY
     tod = ms - dnum * MS_DAY  # 0 .. 86399999
     ymd = civil_from_days(dnum)
     yr = ymd[0]
@@ -82,7 +74,7 @@ export fn components(ms) {
         minute: tod // MS_MIN % 60,
         second: tod // MS_SEC % 60,
         millisecond: tod % MS_SEC,
-        weekday: fmod(dnum + 3, 7),
+        weekday: (dnum + 3) % 7,
         yearday: dnum - days_from_civil(yr, 1, 1) + 1,
     }
 }
@@ -179,7 +171,7 @@ export fn sub(ms, duration) = ms - duration
 ## Milliseconds between two timestamps, `a - b`. Negative when `a` is earlier.
 export fn diff(a, b) = a - b
 ## Whole days between two timestamps, truncated toward negative infinity.
-export fn diff_days(a, b) = fdiv(a - b, MS_DAY)
+export fn diff_days(a, b) = (a - b) // MS_DAY
 
 ## The timestamp `n` days later. `n` may be negative.
 export fn add_days(ms, n) = ms + n * MS_DAY
@@ -189,8 +181,8 @@ export fn add_days(ms, n) = ms + n * MS_DAY
 export fn add_months(ms, n) {
     c = components(ms)
     total = c.year * 12 + (c.month - 1) + n
-    y = fdiv(total, 12)
-    mo = fmod(total, 12) + 1
+    y = total // 12
+    mo = total % 12 + 1
     dim = days_in_month(y, mo)
     d = if c.day < dim { c.day } else { dim }
     from_components(y, mo, d, c.hour, c.minute, c.second, c.millisecond)
@@ -201,7 +193,7 @@ export fn add_months(ms, n) {
 export fn add_years(ms, n) = add_months(ms, n * 12)
 
 ## Midnight UTC on the same day.
-export fn start_of_day(ms) = fdiv(ms, MS_DAY) * MS_DAY
+export fn start_of_day(ms) = ms // MS_DAY * MS_DAY
 
 # ---- formatting / parsing (delegated to std.time / chrono) -----------------
 ## Format a timestamp with a strftime-style pattern.
