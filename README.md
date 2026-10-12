@@ -20,8 +20,7 @@ hash in `ecko.sum`.
 ## Usage
 
 ```ecko
-import datetime
-dt = datetime                       # `import ... as` is not supported yet
+import datetime as dt
 
 now  = dt.now()                     # Unix ms, UTC (== std.time.now())
 c    = dt.components(now)           # { year, month, day, hour, minute, second,

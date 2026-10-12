@@ -5,8 +5,7 @@
 # package adds the calendar math that std.time lacks: components, durations,
 # and arithmetic. All pure; no capabilities.
 #
-#   import datetime
-#   dt = datetime                    # `import ... as` is not supported yet
+#   import datetime as dt
 #
 #   now  = dt.now()
 #   c    = dt.components(now)         # { year, month, day, hour, minute, ... }
