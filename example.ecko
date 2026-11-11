@@ -9,7 +9,7 @@ d = dt.from_components(2026, 7, 16, 9, 30, 0)
 c = dt.components(d)
 
 pretty = dt.format(d, "%A, %B %d, %Y at %H:%M")
-print("date:      {c.year}-{c.month}-{c.day}  ({dt.weekday_name(d)})")
+print("date:      {dt.format(d, "%Y-%m-%d")}  ({dt.weekday_name(d)})")
 print("iso:       {dt.to_iso(d)}")
 print("formatted: {pretty}")
 print("month has: {dt.days_in_month(c.year, c.month)} days")

@@ -93,3 +93,106 @@ test.case("pre-1970 dates work (negative timestamps)", fn() {
     test.eq([c.year, c.month, c.day], [1969, 12, 31])
     test.ok(ms < 0, "before the epoch is negative")
 })
+
+# ---- invalid input -------------------------------------------------------
+
+# The error a call throws, or null when it returns.
+fn caught(f) = try {
+    f()
+    null
+} catch (e) { e }
+
+fn expect_error(f, kind, reason) {
+    e = caught(f)
+    test.ok(e != null, "expected a {kind}/{reason} error, got a value")
+    test.eq([get(e, "kind"), get(e, "reason")], [kind, reason])
+    test.ok(type_of(get(e, "message")) == "string", "the error has a message")
+}
+
+test.case("from_components refuses impossible dates", fn() {
+    expect_error(fn() dt.from_components(2026, 2, 30), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 0, 1), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 13, 1), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 1, 0), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 3, 1, 25), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 3, 1, 0, 60), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 3, 1, 0, 0, 60), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 3, 1, 0, 0, 0, 1000), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2026, 3, 1, -1), "datetime", "invalid_date")
+    expect_error(fn() dt.from_components(2025, 2, 29), "datetime", "invalid_date")
+    test.eq(dt.components(dt.from_components(2024, 2, 29)).day, 29)
+    test.eq(dt.components(dt.from_components(2026, 12, 31, 23, 59, 59, 999)).millisecond, 999)
+})
+
+test.case("from_components refuses non-Int fields", fn() {
+    expect_error(fn() dt.from_components(2026.0, 1, 1), "bug", "bad_argument")
+    expect_error(fn() dt.from_components(2026, "1", 1), "bug", "bad_argument")
+    expect_error(fn() dt.from_components(2026, 1, 1, 1.5), "bug", "bad_argument")
+})
+
+test.case("days_in_month refuses a month outside 1-12", fn() {
+    expect_error(fn() dt.days_in_month(2026, 13), "datetime", "invalid_date")
+    expect_error(fn() dt.days_in_month(2026, 0), "datetime", "invalid_date")
+    expect_error(fn() dt.days_in_month(2026, 1.0), "bug", "bad_argument")
+})
+
+test.case("timestamps and counts must be Ints", fn() {
+    expect_error(fn() dt.components(1.5), "bug", "bad_argument")
+    expect_error(fn() dt.year("2026"), "bug", "bad_argument")
+    expect_error(fn() dt.seconds(1.5), "bug", "bad_argument")
+    expect_error(fn() dt.add_days(0, 0.5), "bug", "bad_argument")
+    expect_error(fn() dt.add_months(0, null), "bug", "bad_argument")
+    expect_error(fn() dt.is_leap(2024.0), "bug", "bad_argument")
+    expect_error(fn() dt.to_iso(null), "bug", "bad_argument")
+    expect_error(fn() dt.format(0, 5), "bug", "bad_argument")
+    expect_error(fn() dt.parse(5), "bug", "bad_argument")
+})
+
+test.case("to_iso covers every year components covers", fn() {
+    ms = dt.from_components(300000, 1, 1)
+    test.eq(dt.components(ms).year, 300000)
+    test.eq(dt.to_iso(ms), "+300000-01-01T00:00:00.000Z")
+    test.eq(dt.to_iso(dt.from_components(-1, 1, 1)), "-0001-01-01T00:00:00.000Z")
+    test.eq(dt.to_iso(dt.from_components(10000, 3, 4, 5, 6, 7, 8)), "+10000-03-04T05:06:07.008Z")
+    test.eq(dt.to_iso(dt.from_components(1, 2, 3)), "0001-02-03T00:00:00.000Z")
+})
+
+test.case("format out of chrono's range is a datetime error", fn() {
+    expect_error(fn() dt.format(dt.from_components(300000, 1, 1), "%Y"), "datetime", "out_of_range")
+    expect_error(fn() dt.format(0, "%Q"), "bug", "bad_format")
+})
+
+test.case("parse refuses what is not RFC 3339", fn() {
+    expect_error(fn() dt.parse("2026-07-16"), "datetime", "bad_timestamp")
+    expect_error(fn() dt.parse("2026-07-16T10:00:00"), "datetime", "bad_timestamp")
+    test.eq(dt.parse("2026-07-16T10:00:00+02:00"), dt.from_components(2026, 7, 16, 8))
+})
+
+test.case("parse_format", fn() {
+    test.eq(
+        dt.parse_format("29/07/2026 10:30", "%d/%m/%Y %H:%M"),
+        dt.from_components(2026, 7, 29, 10, 30),
+    )
+    expect_error(fn() dt.parse_format("x", "%Y"), "datetime", "bad_timestamp")
+})
+
+test.case("extractors and names", fn() {
+    ms = dt.from_components(2026, 7, 16, 13, 45, 30, 250)
+    test.eq([dt.year(ms), dt.month(ms), dt.day(ms)], [2026, 7, 16])
+    test.eq([dt.hour(ms), dt.minute(ms), dt.second(ms)], [13, 45, 30])
+    test.eq(dt.month_name(ms), "July")
+    test.eq(dt.weekday_name(ms), "Thursday")
+    test.eq(dt.components(ms).yearday, 197)
+})
+
+test.case("add, sub, millis", fn() {
+    test.eq(dt.millis(5), 5)
+    test.eq(dt.add(1000, dt.seconds(2)), 3000)
+    test.eq(dt.sub(1000, dt.millis(1)), 999)
+    test.eq(dt.diff_days(0, 1), -1)
+})
+
+test.case("now is an Int timestamp after 2026", fn() {
+    test.ok(type_of(dt.now()) == "int", "now is an Int")
+    test.ok(dt.now() > dt.from_components(2026, 1, 1), "now is recent")
+})
